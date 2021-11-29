@@ -114,7 +114,7 @@ return [
     'over_write_on_duplicate'  => false,
 
     // Item Columns
-    'item_columns' => ['name', 'url', 'time', 'icon', 'is_file', 'is_image', 'thumb_url'],
+    'item_columns' => ['name', 'url', 'time', 'icon', 'is_file', 'is_image', 'is_pdf', 'thumb_url'],
 
     /*
     |--------------------------------------------------------------------------

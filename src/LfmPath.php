@@ -2,6 +2,8 @@
 
 namespace UniSharp\LaravelFilemanager;
 
+use Imagick;
+use ImagickException;
 use Illuminate\Container\Container;
 use Intervention\Image\Facades\Image;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -27,7 +29,11 @@ class LfmPath
     public function __get($var_name)
     {
         if ($var_name == 'storage') {
-            return $this->helper->getStorage($this->path('url'));
+            $path = $this->path('url');
+            if ($this->is_thumb AND str_contains($path,'.pdf')) {
+                $path = str_replace('.pdf','.jpg',$path);
+            }
+            return $this->helper->getStorage($path);
         }
     }
 
@@ -91,7 +97,11 @@ class LfmPath
 
     public function url()
     {
-        return $this->storage->url($this->path('url'));
+        $path = $this->path('url');
+        if ($this->is_thumb AND str_contains($path,'.pdf')) {
+            $path = str_replace('.pdf','.jpg',$path);
+        }
+        return $this->storage->url($path);
     }
 
     public function folders()
@@ -137,7 +147,7 @@ class LfmPath
     /**
      * Create folder if not exist.
      *
-     * @param  string  $path  Real path of a directory.
+     * @param string $path Real path of a directory.
      * @return bool
      */
     public function createFolder()
@@ -164,7 +174,7 @@ class LfmPath
     /**
      * Check a folder and its subfolders is empty or not.
      *
-     * @param  string  $directory_path  Real path of a directory.
+     * @param string $directory_path Real path of a directory.
      * @return bool
      */
     public function directoryIsEmpty()
@@ -176,7 +186,7 @@ class LfmPath
     {
         $path = $this->working_dir
             ?: $this->helper->input('working_dir')
-            ?: $this->helper->getRootFolder();
+                ?: $this->helper->getRootFolder();
 
         if ($this->is_thumb) {
             // Prevent if working dir is "/" normalizeWorkingDir will add double "//" that breaks S3 functionality
@@ -194,7 +204,7 @@ class LfmPath
     /**
      * Sort files and directories.
      *
-     * @param  mixed  $arr_items  Array of files or folders or both.
+     * @param mixed $arr_items Array of files or folders or both.
      * @return array of object
      */
     public function sortByColumn($arr_items)
@@ -289,11 +299,11 @@ class LfmPath
             $file_name_without_extentions = $new_file_name;
             while ($this->setName(($extension) ? $new_file_name_with_extention : $new_file_name)->exists()) {
                 if (config('lfm.alphanumeric_filename') === true) {
-                    $suffix = '_'.$counter;
+                    $suffix = '_' . $counter;
                 } else {
                     $suffix = " ({$counter})";
                 }
-                $new_file_name = $file_name_without_extentions.$suffix;
+                $new_file_name = $file_name_without_extentions . $suffix;
 
                 if ($extension) {
                     $new_file_name_with_extention = $new_file_name . '.' . $extension;
@@ -316,13 +326,40 @@ class LfmPath
         // create folder for thumbnails
         $this->setName(null)->thumb(true)->createFolder();
 
-        // generate cropped image content
-        $this->setName($file_name)->thumb(true);
-        $thumbWidth = $this->helper->shouldCreateCategoryThumb() && $this->helper->categoryThumbWidth() ? $this->helper->categoryThumbWidth() : config('lfm.thumb_img_width', 200);
-        $thumbHeight = $this->helper->shouldCreateCategoryThumb() && $this->helper->categoryThumbHeight() ? $this->helper->categoryThumbHeight() : config('lfm.thumb_img_height', 200);
-        $image = Image::make($original_image->get())
-            ->fit($thumbWidth, $thumbHeight);
+        if ($original_image->isImage()) {
+            // generate cropped image content
+            $this->setName($file_name)->thumb(true);
+            $thumbWidth = $this->helper->shouldCreateCategoryThumb() && $this->helper->categoryThumbWidth() ? $this->helper->categoryThumbWidth() : config('lfm.thumb_img_width', 200);
+            $thumbHeight = $this->helper->shouldCreateCategoryThumb() && $this->helper->categoryThumbHeight() ? $this->helper->categoryThumbHeight() : config('lfm.thumb_img_height', 200);
+            $image = Image::make($original_image->get())
+                ->fit($thumbWidth, $thumbHeight);
 
-        $this->storage->put($image->stream()->detach(), 'public');
+            $this->storage->put($image->stream()->detach(), 'public');
+        }
+
+        if ($original_image->isPdf()) {
+            $this->createThumbForPdf($file_name, $original_image->path());
+        }
+    }
+
+    public function createThumbForPdf($fileName,$savedFileUrl)
+    {
+        $thumbLocation = str_replace(
+            $fileName,
+            $this->helper->getThumbFolderName() . "/" .str_replace('pdf','jpg', $fileName),
+            $savedFileUrl
+        );
+        try {
+            $image = new Imagick("{$savedFileUrl}[0]");
+            $image->setImageColorspace(255);
+            $image->setimageformat("jpg");
+            $image->thumbnailimage(1280, 1024);
+            $image->writeImage($thumbLocation);
+            $image->clear();
+            $image->destroy();
+            return true;
+        } catch (ImagickException $exception) {
+            return false;
+        }
     }
 }

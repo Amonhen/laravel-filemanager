@@ -3,6 +3,7 @@
 namespace UniSharp\LaravelFilemanager\Controllers;
 
 use Illuminate\Support\Facades\Storage;
+use JetBrains\PhpStorm\ArrayShape;
 use UniSharp\LaravelFilemanager\Events\FileIsMoving;
 use UniSharp\LaravelFilemanager\Events\FileWasMoving;
 use UniSharp\LaravelFilemanager\Events\FolderIsMoving;
@@ -13,9 +14,13 @@ class ItemsController extends LfmController
     /**
      * Get the images to load for a selected folder.
      *
-     * @return mixed
+     * @return array
      */
-    public function getItems()
+    #[ArrayShape([
+        'items' => "mixed", 'paginator' => "array",
+        'display' => "mixed", 'working_dir' => "mixed"
+    ])]
+    public function getItems() : array
     {
         $currentPage = self::getCurrentPageFromRequest();
 

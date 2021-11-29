@@ -21,7 +21,7 @@ class LfmItem
         $this->helper = $helper;
         $this->isDirectory = $isDirectory;
         $this->columns = $helper->config('item_columns') ?:
-            ['name', 'url', 'time', 'icon', 'is_file', 'is_image', 'thumb_url'];
+            ['name', 'url', 'time', 'icon', 'is_file', 'is_image', 'is_pdf', 'thumb_url'];
     }
 
     public function __get($var_name)
@@ -75,6 +75,17 @@ class LfmItem
     }
 
     /**
+     * Check a file is pdf or not.
+     *
+     * @param  mixed  $file  Real path of a file or instance of UploadedFile.
+     * @return bool
+     */
+    public function isPdf()
+    {
+        return $this->isFile() && Str::endsWith($this->mimeType(), 'pdf');
+    }
+
+    /**
      * Get mime type of a file.
      *
      * @param  mixed  $file  Real path of a file or instance of UploadedFile.
@@ -119,7 +130,7 @@ class LfmItem
             return asset('vendor/' . Lfm::PACKAGE_NAME . '/img/folder.png');
         }
 
-        if ($this->isImage()) {
+        if ($this->isImage() OR $this->isPdf()) {
             return $this->lfm->thumb($this->hasThumb())->url(true);
         }
 
@@ -134,6 +145,10 @@ class LfmItem
 
         if ($this->isImage()) {
             return 'fa-image';
+        }
+
+        if ($this->isPdf()) {
+            return 'fa-file-pdf-o';
         }
 
         return $this->extension();
@@ -154,7 +169,7 @@ class LfmItem
 
     public function hasThumb()
     {
-        if (!$this->isImage()) {
+        if (!$this->isImage() AND !$this->isPdf()) {
             return false;
         }
 
@@ -171,7 +186,7 @@ class LfmItem
             return false;
         }
 
-        if (!$this->isImage()) {
+        if (!$this->isImage() AND !$this->isPdf()) {
             return false;
         }
 
